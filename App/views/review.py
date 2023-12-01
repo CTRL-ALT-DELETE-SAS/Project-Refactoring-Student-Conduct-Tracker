@@ -1,16 +1,15 @@
 from flask import Blueprint, jsonify, redirect, render_template, request, abort, url_for
 from flask_jwt_extended import jwt_required, current_user as jwt_current_user
 from flask_login import current_user
-from App.controllers import Review, Staff
+from App.controllers.staff import search_students_searchTerm
 from App.controllers.user import get_staff
-from App.controllers.student import search_student
 
 from App.controllers.review import (
     get_reviews_by_staff,
     edit_review,
     delete_review,
-    upvoteReview,
-    downvoteReview,
+    upvote,
+    downvote,
     get_reviews,
     get_reviews_for_student, 
     get_review
@@ -35,7 +34,7 @@ def view_review(review_id):
         return 'Review does not exist', 404
 
 #Route to upvote review 
-@review_views.route('/reviews/<int:review_id>', methods=['POST'])
+@review_views.route('/reviews/<int:review_id>/upvote', methods=['POST'])
 @jwt_required()
 def upvote (review_id):
     if not jwt_current_user or not isinstance(jwt_current_user, Staff):
@@ -46,7 +45,7 @@ def upvote (review_id):
         staff = get_staff(jwt_current_user.ID)
         if staff:
             current = review.upvotes
-            new_votes= upvoteReview(review_id, staff)
+            new_votes= upvote(review_id, staff)
             if new_votes == current: 
                return jsonify(review.to_json(), 'Review Already Upvoted'), 201 
             else:
@@ -57,7 +56,7 @@ def upvote (review_id):
         return'Review does not exist', 404
 
 #Route to downvote review 
-@review_views.route('/reviews/<int:review_id>', methods=['POST'])
+@review_views.route('/reviews/<int:review_id>/downvote', methods=['POST'])
 @jwt_required()
 def downvote (review_id):
     if not jwt_current_user or not isinstance(jwt_current_user, Staff):
@@ -68,9 +67,9 @@ def downvote (review_id):
         staff = get_staff(jwt_current_user.ID)
         if staff:
             current = review.downvotes
-            new_votes= downvoteReview(review_id, staff)
+            new_votes= downvote(review_id, staff)
             if new_votes == current: 
-               return jsonify(review.to_json(), 'Review Already Downvoted'), 201 
+               return jsonify(review.to_json(), 'Review Already Downvoted'), 400 
             else:
                 return jsonify(review.to_json(), 'Review Downvoted Successfully'), 200 
         else: 
@@ -81,7 +80,7 @@ def downvote (review_id):
 # Route to get reviews by student ID
 @review_views.route("/students/<string:student_id>/reviews", methods=["GET"])
 def get_reviews_of_student(student_id):
-    if search_student(student_id):
+    if search_students_searchTerm(student_id):
         reviews = get_reviews_for_student(student_id)
         if reviews:
             return jsonify([review.to_json() for review in reviews]), 200
@@ -101,7 +100,7 @@ def get_reviews_from_staff(staff_id):
     return "Staff does not exist", 404
 
 # Route to edit a review
-@review_views.route("/review/edit/<int:review_id>", methods=["PUT"])
+@review_views.route("/review/<int:review_id>", methods=["PUT"])
 @jwt_required()
 def review_edit(review_id):
     review = get_review(review_id)
@@ -130,7 +129,7 @@ def review_edit(review_id):
 
 
 # Route to delete a review
-@review_views.route("/reviews/delete/<int:review_id>", methods=["DELETE"])
+@review_views.route("/reviews/<int:review_id>", methods=["DELETE"])
 @jwt_required()
 def review_delete(review_id):
     review = get_review(review_id)
